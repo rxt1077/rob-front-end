@@ -1,0 +1,8 @@
+[quote, Rob the Builder]
+Can we fix it? No, but we can tell you it's broken.
+
+= Rob Front End
+
+A front end for _Rob the Builder_ written in https://elm-lang.org/[Elm].
+
+https://using.tech/posts/elm/[Relevant blog post]
