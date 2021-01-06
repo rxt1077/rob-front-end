@@ -32,16 +32,33 @@ import Html
         , thead
         , tr
         )
-import Html.Attributes exposing (class, classList, placeholder, type_, value)
+import Html.Attributes
+    exposing
+        ( class
+        , classList
+        , placeholder
+        , style
+        , type_
+        , value
+        )
 import Html.Events exposing (onClick, onInput)
 import Http
-import Json.Decode exposing (Decoder, bool, field, int, list, map2, map4, string)
+import Json.Decode
+    exposing
+        ( Decoder
+        , bool
+        , field
+        , int
+        , list
+        , map2
+        , map4
+        , string
+        )
 import Json.Encode as Encode
 import Platform.Cmd exposing (batch)
 
 
 
--- TODO: Add column format to modal
 -- MODEL
 
 
@@ -98,7 +115,7 @@ init _ =
       , modalData = Nothing
       , error = Nothing
       }
-    , batch [ getUsers, getGroups ]
+    , batch [ getUsers, getGroups GotGroups ]
     )
 
 
@@ -185,7 +202,7 @@ update msg model =
         ReloadGroups result ->
             case result of
                 Ok _ ->
-                    ( model, batch [ getUsers, getGroups ] )
+                    ( model, batch [ getUsers, getGroups GotGroups ] )
 
                 Err error ->
                     handleError error (\n -> { model | error = Just n })
@@ -441,18 +458,20 @@ editModal modalData users =
                 [ p [ class "modal-card-title" ]
                     [ text modalData.title ]
                 ]
-            , section [ class "modal-card-body" ]
-                [ bulmaTextInput "Name" NameInput modalData.group.name
-                , bulmaTextInput "Git URL" GitInput modalData.group.gitUrl
-                , div [ class "columns" ]
+
+            -- the popup dropdown can cause an overflow, so we add a height
+            , section [ class "modal-card-body", style "height" "375px" ]
+                [ div [ class "columns" ]
                     [ div [ class "column" ]
-                        [ div [ class "field" ]
+                        [ bulmaTextInput "Name" NameInput modalData.group.name
+                        , div [ class "field" ]
                             (label [ class "label" ] [ text "Members" ]
                                 :: List.map memberIcon modalData.group.members
                             )
                         ]
                     , div [ class "column" ]
-                        [ div [ class "field" ]
+                        [ bulmaTextInput "Git URL" GitInput modalData.group.gitUrl
+                        , div [ class "field" ]
                             [ label [ class "label" ] [ text "Add member" ]
                             , autoDrop users modalData.searchText
                             ]
@@ -497,11 +516,11 @@ view model =
 -- HTTP
 
 
-getGroups : Cmd Msg
-getGroups =
+getGroups : (Result Http.Error (List Group) -> msg) -> Cmd msg
+getGroups event =
     Http.get
         { url = "/group"
-        , expect = Http.expectJson GotGroups groupsDecoder
+        , expect = Http.expectJson event groupsDecoder
         }
 
 
