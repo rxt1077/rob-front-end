@@ -1,0 +1,9 @@
+Package: rob-front-end
+Version: 0.1.0
+Section: Development
+Priority: optional
+Architecture: all
+Essential: no
+Installed-size: 532
+Maintainer: Ryan Tolboom <rxt1077@njit.edu>
+Description: Front end for Rob the Builder build system

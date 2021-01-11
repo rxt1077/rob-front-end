@@ -109,7 +109,6 @@ type alias Model =
     , groupID : Maybe Int
     , testID : Maybe Int
     , details : Maybe Job
-    , time : Posix
     , timezone : Time.Zone
     , lastUpdated : Posix
     }
@@ -134,7 +133,6 @@ init _ =
       , groupID = Nothing
       , testID = Nothing
       , details = Nothing
-      , time = Time.millisToPosix 0
       , timezone = Time.utc
       , lastUpdated = Time.millisToPosix 0
       }
@@ -170,7 +168,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case Debug.log "MSG" msg of
         GotTime time ->
-            ( { model | time = time }, Cmd.none )
+            ( { model | lastUpdated = time }, Cmd.none )
 
         GotTimezone timezone ->
             ( { model | timezone = timezone }, Cmd.none )
@@ -181,9 +179,8 @@ update msg model =
                     ( { model
                         | jobs = jobs
                         , error = Nothing
-                        , lastUpdated = model.time
                       }
-                    , Cmd.none
+                    , Task.perform GotTime Time.now
                     )
 
                 Err error ->
@@ -273,10 +270,7 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-        [ Time.every 1000 GotTime
-        , Time.every (10 * 1000) Refresh
-        ]
+    Sub.batch [ Time.every (10 * 1000) Refresh ]
 
 
 
@@ -311,13 +305,13 @@ datetimeOrNone maybePosix =
 -- provides HTML for a single row of the table
 
 
-rowItem : Job -> List Group -> List Test -> Html Msg
-rowItem job groups tests =
+rowItem : Job -> Model -> Html Msg
+rowItem job model =
     tr []
         [ td [] [ text (String.fromInt job.id) ]
-        , td [] [ text (Iso8601.fromTime job.created) ]
-        , td [] [ text (groupNameFromID job.groupID groups) ]
-        , td [] [ text (testNameFromID job.testID tests) ]
+        , td [] [ text (toDateTime model.timezone job.created) ]
+        , td [] [ text (groupNameFromID job.groupID model.groups) ]
+        , td [] [ text (testNameFromID job.testID model.tests) ]
         , td [] [ text job.status ]
         , td [] [ rowControls job ]
         ]
@@ -327,8 +321,8 @@ rowItem job groups tests =
 -- provides HTML for the main table
 
 
-jobsTable : List Job -> List Group -> List Test -> Html Msg
-jobsTable jobs groups tests =
+jobsTable : Model -> Html Msg
+jobsTable model =
     table [ class "table", class "is-hoverable", class "is-fullwidth" ]
         [ thead []
             [ tr []
@@ -343,7 +337,7 @@ jobsTable jobs groups tests =
                     ]
                 ]
             ]
-        , tbody [] (List.map (\j -> rowItem j groups tests) jobs)
+        , tbody [] (List.map (\j -> rowItem j model) model.jobs)
         ]
 
 
@@ -482,13 +476,67 @@ padTime time =
     String.padLeft 2 '0' (String.fromInt time)
 
 
-timeString : Posix -> Time.Zone -> String
-timeString time timezone =
+toTime : Time.Zone -> Posix -> String
+toTime timezone time =
     padTime (Time.toHour timezone time)
         ++ ":"
         ++ padTime (Time.toMinute timezone time)
         ++ ":"
         ++ padTime (Time.toSecond timezone time)
+
+
+toMonth : Time.Month -> String
+toMonth month =
+    case month of
+        Time.Jan ->
+            "01"
+
+        Time.Feb ->
+            "02"
+
+        Time.Mar ->
+            "03"
+
+        Time.Apr ->
+            "04"
+
+        Time.May ->
+            "05"
+
+        Time.Jun ->
+            "06"
+
+        Time.Jul ->
+            "07"
+
+        Time.Aug ->
+            "08"
+
+        Time.Sep ->
+            "09"
+
+        Time.Oct ->
+            "10"
+
+        Time.Nov ->
+            "11"
+
+        Time.Dec ->
+            "12"
+
+
+toDate : Time.Zone -> Posix -> String
+toDate timezone time =
+    String.fromInt (Time.toYear timezone time)
+        ++ "-"
+        ++ toMonth (Time.toMonth timezone time)
+        ++ "-"
+        ++ padTime (Time.toDay timezone time)
+
+
+toDateTime : Time.Zone -> Posix -> String
+toDateTime timezone time =
+    toDate timezone time ++ " " ++ toTime timezone time
 
 
 view : Model -> Html Msg
@@ -509,11 +557,9 @@ view model =
         , h1 [ class "title" ] [ text "Manage Jobs" ]
         , div [ class "is-size-7" ]
             [ text
-                ("Last updated "
-                    ++ timeString model.lastUpdated model.timezone
-                )
+                ("Last updated " ++ toTime model.timezone model.lastUpdated)
             ]
-        , jobsTable model.jobs model.groups model.tests
+        , jobsTable model
         , addJob model
         ]
 
